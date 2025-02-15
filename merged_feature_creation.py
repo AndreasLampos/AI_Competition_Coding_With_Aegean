@@ -39,7 +39,7 @@ month_rank = {month: rank+1 for rank, month in enumerate(monthly_avg_pax_sorted.
 df['Month_Rank'] = df['Month'].map(month_rank)
 
 # Save the updated dataset to a new CSV file
-df.to_csv('merged_set_with_rank.csv', index=False)
+df.to_csv('merged_set.csv', index=False)
 
 # Display the first few rows of the updated dataset
 print(df.head())
