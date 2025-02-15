@@ -1,4 +1,7 @@
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import scipy.stats as stats
 
 # Load the datasets
 aegean_set = pd.read_csv('aegean_set.csv')
@@ -25,7 +28,7 @@ aegean_d = aegean_d.rename(columns={
     'Seats': 'seats_D',
     'Count of Flights': 'flights_D',
     'Avg. Fare': 'avg_fare_D',
-    'LF': 'LF_D'  # Note this rename for Load Factor
+    'LF': 'LF_D'
 })
 
 # Create new columns for international flights
@@ -34,7 +37,7 @@ aegean_i = aegean_i.rename(columns={
     'Seats': 'seats_I',
     'Count of Flights': 'flights_I',
     'Avg. Fare': 'avg_fare_I',
-    'LF': 'LF_I'  # Note this rename for Load Factor
+    'LF': 'LF_I'
 })
 
 # Select only needed columns, including LF_D and LF_I
@@ -47,10 +50,42 @@ aegean_merged = pd.merge(aegean_d, aegean_i, on=['Year', 'Month'])
 # Merge with competitors data
 final_df = pd.merge(aegean_merged, competitors_avg, on=['Year', 'Month'])
 
+# Calculate the average pax for each month
+monthly_avg_pax = final_df.groupby('Month')['pax_D'].mean()
+
+# Calculate the 90% confidence interval for the average pax for each month
+confidence_intervals = {}
+for month in monthly_avg_pax.index:
+    month_data = final_df[final_df['Month'] == month]['pax_D']
+    mean = month_data.mean()
+    sem = stats.sem(month_data)
+    ci = stats.t.interval(0.90, len(month_data)-1, loc=mean, scale=sem)
+    confidence_intervals[month] = ci
+
+# Plot the average pax with confidence intervals
+plt.figure(figsize=(10, 6))
+sns.pointplot(x=monthly_avg_pax.index, y=monthly_avg_pax.values, capsize=.2)
+for month, ci in confidence_intervals.items():
+    plt.errorbar(month, monthly_avg_pax[month], yerr=[[monthly_avg_pax[month] - ci[0]], [ci[1] - monthly_avg_pax[month]]], fmt='o', color='black')
+plt.xlabel('Month')
+plt.ylabel('Average Pax')
+plt.title('Average Pax per Month with 90% Confidence Intervals')
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.savefig('average_pax_per_month.png')
+plt.show()
+
+# Rank the months based on the average pax
+monthly_avg_pax_sorted = monthly_avg_pax.sort_values(ascending=False)
+month_rank = {month: rank+1 for rank, month in enumerate(monthly_avg_pax_sorted.index)}
+
+# Add the ranking to the dataset
+final_df['Month_Rank'] = final_df['Month'].map(month_rank)
+
 # Reorder columns as requested
 final_df = final_df[[
     'Year', 'Month', 'pax_D', 'seats_D', 'flights_D', 'avg_fare_D', 'pax_I',
-    'LF_D', 'LF_I', 'seats_I', 'flights_I', 'avg_fare_I', 'Selling Prices ', 'Capacities '
+    'LF_D', 'LF_I', 'seats_I', 'flights_I', 'avg_fare_I', 'Selling Prices ', 'Capacities ', 'Month_Rank'
 ]]
 
 # Round numeric columns to 2 decimal places
