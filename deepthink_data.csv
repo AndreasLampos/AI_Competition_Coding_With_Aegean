@@ -1,4 +1,4 @@
-Year,Month,pax_D,seats_D,flights_D,avg_fare_D,pax_I,LF_D,LF_I,seats_I,flights_I,avg_fare_I,Selling Prices,capacities_D,capacities_I,Month_Rank
+year,month,pax_D,seats_D,flights_D,avg_fare_D,pax_I,LF_D,LF_I,seats_I,flights_I,avg_fare_I,selling_prices,capacities_D,capacities_I,month_rank
 2000,January,48020,82000,420,25,32010,58.6,39.0,82000,310,55,45.2,100000,150000,12
 2000,February,52015,85000,435,27,33500,61.2,40.5,84000,325,58,47.8,100000,150000,11
 2000,March,61000,105000,510,29,40500,58.1,42.3,96000,410,62,52.1,120000,180000,10
