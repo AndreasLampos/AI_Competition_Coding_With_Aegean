@@ -14,8 +14,9 @@ print(df.head())
 # -------------------------------
 # Step 2: Define features and targets
 # -------------------------------
-features_D = ['avg_fare_D', 'Selling Prices', 'Capacities', 'Month_Rank']
-features_I = ['avg_fare_I', 'Selling Prices', 'Capacities', 'Month_Rank']
+# Now we have separate capacity columns for domestic and international models.
+features_D = ['avg_fare_D', 'Selling Prices', 'capacities_D', 'Month_Rank']
+features_I = ['avg_fare_I', 'Selling Prices', 'capacities_I', 'Month_Rank']
 target_pax_D = 'pax_D'
 target_pax_I = 'pax_I'
 
@@ -100,15 +101,16 @@ def predict_for_new_month():
         avg_fare_D = float(input("Enter avg_fare_D for domestic (e.g., 27): "))
         avg_fare_I = float(input("Enter avg_fare_I for international (e.g., 72): "))
         selling_prices = float(input("Enter Selling Prices (e.g., 103.13): "))
-        capacities = float(input("Enter Capacities (e.g., 99837.0): "))
+        capacity_D = float(input("Enter capacity_D for domestic (e.g., 99837.0): "))
+        capacity_I = float(input("Enter capacity_I for international (e.g., 110000.0): "))
         month_rank = float(input("Enter Month_Rank (e.g., 10): "))
     except ValueError:
         print("Invalid input. Please enter numerical values.")
         return
 
     # Create DataFrames with the same column names as used during training.
-    new_features_D = pd.DataFrame([[avg_fare_D, selling_prices, capacities, month_rank]], columns=features_D)
-    new_features_I = pd.DataFrame([[avg_fare_I, selling_prices, capacities, month_rank]], columns=features_I)
+    new_features_D = pd.DataFrame([[avg_fare_D, selling_prices, capacity_D, month_rank]], columns=features_D)
+    new_features_I = pd.DataFrame([[avg_fare_I, selling_prices, capacity_I, month_rank]], columns=features_I)
     
     # Scale the new features using the respective scalers.
     new_features_D_scaled = scaler_D.transform(new_features_D)
