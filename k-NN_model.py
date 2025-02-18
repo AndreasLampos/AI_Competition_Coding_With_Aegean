@@ -16,11 +16,31 @@ print("="*50)
 print("First few rows of the dataset:")
 print(df.head())
 
+# Calculate the average airplane capacity for each month for domestic flights
+df['average_airplane_capacity_D'] = df['seats_D'] / df['flights_D']
+
+# Calculate the average airplane capacity for each month for international flights
+df['average_airplane_capacity_I'] = df['seats_I'] / df['flights_I']
+
+# Calculate the overall average airplane capacity for domestic flights
+average_airplane_capacity_D = df['average_airplane_capacity_D'].mean()
+
+# Calculate the overall average airplane capacity for international flights
+average_airplane_capacity_I = df['average_airplane_capacity_I'].mean()
+
+# Print the results
+print("\nAverage Airplane Capacity for Each Month for Domestic Flights:")
+print(f"\nOverall Average Airplane Capacity (Domestic): {average_airplane_capacity_D:.2f}")
+
+print("\nAverage Airplane Capacity for Each Month for International Flights:")
+print(f"Overall Average Airplane Capacity (International): {average_airplane_capacity_I:.2f}")
+
+
 # ===============================
 # Step 2: Define Features and Targets
 # ===============================
-features_D = ['avg_fare_D', 'Selling Prices', 'capacities_D', 'Month_Rank']
-features_I = ['avg_fare_I', 'Selling Prices', 'capacities_I', 'Month_Rank']
+features_D = ['avg_fare_D', 'selling_prices', 'capacities_D', 'month_rank']
+features_I = ['avg_fare_I', 'selling_prices', 'capacities_I', 'month_rank']
 target_pax_D = 'pax_D'
 target_pax_I = 'pax_I'
 
@@ -33,10 +53,10 @@ print(df[features_D + features_I + [target_pax_D, target_pax_I]].describe())
 # Step 3: Train/Test Split
 # ===============================
 X_train_D, X_test_D, y_train_D, y_test_D = train_test_split(
-    df[features_D], df[target_pax_D], test_size=0.2, random_state=42
+    df[features_D], df[target_pax_D], test_size=0.1, random_state=42
 )
 X_train_I, X_test_I, y_train_I, y_test_I = train_test_split(
-    df[features_I], df[target_pax_I], test_size=0.2, random_state=42
+    df[features_I], df[target_pax_I], test_size=0.1, random_state=42
 )
 
 print("\n" + "="*50)
@@ -96,7 +116,7 @@ print(y_test_I.tolist())
 # ===============================
 # Step 6: Model Evaluation using Cross-Validation
 # ===============================
-cv_folds = 5
+cv_folds = 8    # Number of cross-validation folds for evaluation.
 
 print("\n" + "="*50)
 print("CROSS-VALIDATION RESULTS")
@@ -113,9 +133,9 @@ mae_scorer = make_scorer(mean_absolute_error, greater_is_better=False)
 cv_mae_D = cross_val_score(model_D_knn, scaler_D.transform(df[features_D]), df[target_pax_D], cv=cv_folds, scoring=mae_scorer)
 cv_mae_I = cross_val_score(model_I_knn, scaler_I.transform(df[features_I]), df[target_pax_I], cv=cv_folds, scoring=mae_scorer)
 
-print("\nDomestic MAE per Fold (in absolute value):", [-score for score in cv_mae_D])
+print("\nDomestic MAE per Fold (in absolute value):", [float (-score) for score in cv_mae_D])
 print(f"Domestic Average MAE: {-cv_mae_D.mean():.2f}")
-print("\nInternational MAE per Fold (in absolute value):", [-score for score in cv_mae_I])
+print("\nInternational MAE per Fold (in absolute value):", [float (-score) for score in cv_mae_I])
 print(f"International Average MAE: {-cv_mae_I.mean():.2f}")
 
 train_r2_D = model_D_knn.score(X_train_D, y_train_D)
@@ -137,74 +157,94 @@ print(f"  Testing R² Score: {test_r2_I:.2f}")
 def optimize_domestic_fare():
     """
     This function finds the optimal domestic fare such that the predicted demand
-    is as close as possible to the available capacity. Since the model may predict
-    demand higher than capacity, we define the effective load factor as:
-        Effective LF = min(predicted pax, capacity) / capacity
-    The objective function minimizes the squared difference between predicted pax and capacity.
+    is as close as possible to the provided total capacity while ensuring that
+    the fare remains realistic relative to the competitor's selling price.
+    
+    If the chosen domestic fare exceeds the competitor's selling price, the predicted 
+    pax is scaled down proportionally, reflecting that a much higher fare would 
+    result in lower demand. The effective load factor is computed based on the 
+    adjusted predicted pax.
+    
+    In addition, using the overall average airplane capacity (average_airplane_capacity_D),
+    we calculate how many flights are needed and the load factor per flight.
     """
     print("\n" + "="*50)
     print("OPTIMIZATION OF DOMESTIC FARE")
     print("="*50)
     try:
         init_avg_fare_D = float(input("Enter initial avg_fare_D for domestic (e.g., 27): "))
-        selling_prices = float(input("Enter Selling Prices (e.g., 103.13): "))
-        capacities_D = float(input("Enter capacities_D for domestic (e.g., 99837.0): "))
-        month_rank = float(input("Enter Month_Rank (e.g., 10): "))
+        selling_prices = float(input("Enter selling_prices (e.g., 103.13): "))
+        total_capacity = float(input("Enter total capacity for domestic (e.g., 99837.0): "))
+        month_rank = float(input("Enter month_rank (e.g., 10): "))
     except ValueError:
         print("Invalid input. Please enter numerical values.")
         return
     
-    # Define the objective function: minimize (predicted pax - capacity)^2.
+    # Define the objective function: minimize (adjusted predicted pax - total_capacity)^2.
     def objective(avg_fare):
         new_features = pd.DataFrame({
             'avg_fare_D': [avg_fare],
-            'Selling Prices': [selling_prices],
-            'capacities_D': [capacities_D],
-            'Month_Rank': [month_rank]
+            'selling_prices': [selling_prices],
+            'capacities_D': [total_capacity],
+            'month_rank': [month_rank]
         })
         new_features_scaled = scaler_D.transform(new_features)
         predicted = model_D_knn.predict(new_features_scaled)[0]
-        return (predicted - capacities_D) ** 2
+        # If the domestic fare is above the competitor's selling price,
+        # scale down the predicted pax proportionally.
+        adjustment_factor = selling_prices / avg_fare if avg_fare > selling_prices else 1
+        adjusted_predicted = predicted * adjustment_factor
+        return (adjusted_predicted - total_capacity) ** 2
     
-    # Set reasonable bounds for the fare (adjust as needed)
-    lower_bound = 10    # minimum fare
-    upper_bound = 500   # maximum fare
+    # Adjust the bounds based on month rank
+    lower_bound = 10
+    upper_bound = selling_prices * (1 + (12 - month_rank) / 12)  # Adjust upper bound based on month rank
+    upper_bound = min(upper_bound, selling_prices * 1.2)  # Ensure the fare does not exceed 120% of selling_prices
     
-    # Run the optimizer using bounded method
+    # Run the optimizer using the bounded method.
     res = minimize_scalar(objective, bounds=(lower_bound, upper_bound), method='bounded')
     optimal_fare = res.x
     
-    # Get the corresponding predicted pax using the optimal fare
+    # Get the corresponding predicted pax using the optimal fare.
     new_features = pd.DataFrame({
         'avg_fare_D': [optimal_fare],
-        'Selling Prices': [selling_prices],
-        'capacities_D': [capacities_D],
-        'Month_Rank': [month_rank]
+        'selling_prices': [selling_prices],
+        'capacities_D': [total_capacity],
+        'month_rank': [month_rank]
     })
     new_features_scaled = scaler_D.transform(new_features)
-    optimal_predicted = model_D_knn.predict(new_features_scaled)[0]
+    predicted = model_D_knn.predict(new_features_scaled)[0]
+    adjustment_factor = selling_prices / optimal_fare if optimal_fare > selling_prices else 1
+    optimal_predicted = predicted * adjustment_factor
     
-    # Compute the effective load factor (capped at 100%)
-    effective_LF = min(optimal_predicted, capacities_D) / capacities_D
+    # Compute the effective load factor (capped at 100%).
+    effective_LF = min(optimal_predicted, total_capacity) / total_capacity
+    
+    # Compute the number of flights needed based on the overall average airplane capacity.
+    flights_needed = np.ceil(optimal_predicted / average_airplane_capacity_D)
+    # Calculate the average load factor per flight.
+    load_factor_per_flight = (optimal_predicted / flights_needed) / average_airplane_capacity_D
     
     print("\nFINAL OPTIMIZATION RESULTS (Domestic):")
-    print(f"Optimal avg_fare_D: {optimal_fare:.2f}")
-    print(f"Optimal predicted pax: {optimal_predicted:.0f}")
-    print(f"Capacity: {capacities_D:.0f}")
-    print(f"Effective Load Factor: {effective_LF*100:.2f}%")
-    
+    print(f"Optimal Average Fare for Domestic (adjusted): {optimal_fare:.2f}")
+    print(f"Optimal Predicted Pax (adjusted): {optimal_predicted:.0f}")
+    print(f"Provided Total Capacity: {total_capacity:.0f}")
+    print(f"Effective Load Factor (with respect to the provided capacity): {effective_LF*100:.2f}%")
+    print(f"Overall Average Airplane Capacity (Domestic): {average_airplane_capacity_D:.2f}")
+    print(f"Estimated Number of Flights Needed: {int(flights_needed)}")
+    print(f"Average Load Factor per Flight: {load_factor_per_flight*100:.2f}%")
 
 def interactive_prediction():
     print("\n" + "="*50)
     print("INTERACTIVE NEW MONTH PREDICTION")
     print("="*50)
     try:
-        avg_fare_D = float(input("Enter avg_fare_D for domestic (e.g., 27): "))
-        avg_fare_I = float(input("Enter avg_fare_I for international (e.g., 72): "))
-        selling_prices = float(input("Enter Selling Prices (e.g., 103.13): "))
-        capacities_D = float(input("Enter capacities_D for domestic (e.g., 99837.0): "))
-        capacities_I = float(input("Enter capacities_I for international (e.g., 110000.0): "))
-        month_rank = float(input("Enter Month_Rank (e.g., 10): "))
+        avg_fare_D = float(input("Enter the Average Fare for Domestic (e.g. 27): "))
+        avg_fare_I = float(input("Enter the Average Fare for International (e.g. 72): "))
+        selling_prices = float(input("Enter Selling Prices e.g. 103.13): "))
+        capacities_D = float(input("Enter Capacities for Domestic (e.g. 99837.0): "))
+        capacities_I = float(input("Enter Capacities for International (e.g. 110000.0): "))
+        month_rank = float(input("Enter the Month's Rank (e.g. 10): "))
     except ValueError:
         print("Invalid input. Please enter numerical values.")
         return
