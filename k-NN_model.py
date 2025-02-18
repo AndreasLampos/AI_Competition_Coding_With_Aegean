@@ -9,7 +9,7 @@ from scipy.optimize import minimize_scalar
 # ===============================
 # Step 1: Load and Inspect the Data
 # ===============================
-df = pd.read_csv('deepthink_data.csv')
+df = pd.read_csv("Data Files\deepthink_data.csv")
 print("="*50)
 print("DATA OVERVIEW")
 print("="*50)
