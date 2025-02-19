@@ -1,2 +1,79 @@
 Σπάμε το Capacities σε Capacities_D και Capacities_I, ώστε να μπορούμε να προβλέψουμε Pax_D και Pax_I αντίστοιχα.
 Χωρίς "σπάσιμο", αν δίναμε "μικρό" Capacities, τότε το Pax_I έβγαινε αρνητικό και αντίστοιχα αν δίναμε "μεγάλο" Capacities, το Pax_D έβγαινε αρνητικό.
+Υποθέτουμε μια κατανομή τύπου 60 εξωτερικό - 40 εσωτερικό.
+
+
+
+param_grid = {
+    'n_estimators': [50, 100, 150],
+    'max_depth': [None, 3, 5, 7],
+    'min_samples_split': [2, 4, 6],
+    'min_samples_leaf': [1, 2, 3],
+    'max_features': ['auto', 'sqrt', 'log2']
+}
+
+# Define the number of cross-validation folds (using 8-fold cross-validation)
+cv_folds = 8
+
+# Domestic model grid search
+grid_search_D = GridSearchCV(RandomForestRegressor(random_state=42),
+                             param_grid, cv=cv_folds, scoring='r2', n_jobs=-1)
+grid_search_D.fit(X_train_D, y_train_D)
+print("\nBest parameters for Domestic model:", grid_search_D.best_params_)
+
+# International model grid search
+grid_search_I = GridSearchCV(RandomForestRegressor(random_state=42),
+                             param_grid, cv=cv_folds, scoring='r2', n_jobs=-1)
+grid_search_I.fit(X_train_I, y_train_I)
+print("Best parameters for International model:", grid_search_I.best_params_)
+
+Για να βρούμε τις βέλτιστες παραμέτρους στο Random Forest χρησιμοποίησα τα παραπάνω και μου έδωσε το παρακάτω.
+Best parameters for Domestic model: {'max_depth': 7, 'max_features': 'sqrt', 'min_samples_leaf': 1, 'min_samples_split': 2, 'n_estimators': 150}
+Best parameters for International model: {'max_depth': 7, 'max_features': 'sqrt', 'min_samples_leaf': 1, 'min_samples_split': 2, 'n_estimators': 150}
+
+
+Για καμπύλες στο k-NN:
+From this learning curve, you can draw a few key insights about the domestic kNN model:
+
+High Training Score (Red Curve)
+The training score remains very close to 1.0 (an R² near 1 means the model fits the training data extremely well). This suggests that kNN is capable of effectively “memorizing” or closely fitting the training set, especially with a small or moderate number of training samples.
+
+Lower Cross-Validation Score (Green Curve)
+The cross-validation (CV) score starts out significantly lower than the training score, indicating that the model is initially overfitting. However, as the number of training examples increases, the CV score steadily improves. This is typical for a model that benefits from more data: it gradually generalizes better as it sees more samples.
+
+Gap Between Training and CV Scores
+There is a noticeable gap between the training curve (red) and the cross-validation curve (green). A large gap typically indicates overfitting: the model fits the training data almost perfectly but struggles to generalize. Still, the green curve’s upward trend suggests that adding even more data—or further tuning the model (e.g., adjusting the number of neighbors)—could help reduce this gap.
+
+Model Complexity
+kNN can be quite flexible, and it often fits the training set very well (especially with smaller data or fewer neighbors). If the cross-validation score remains significantly below the training score as you add more data, you might consider:
+
+Tuning hyperparameters (e.g., increasing the number of neighbors).
+Trying different weighting schemes (e.g., distance weighting).
+Considering other model types (e.g., Random Forest, Gradient Boosting) if kNN’s performance does not improve further.
+Encouraging Upward Trend
+The cross-validation curve is still rising and hasn’t completely leveled off. This typically means:
+
+The model is not yet hitting a hard performance limit.
+More data (if available) could continue to improve generalization.
+Additional feature engineering or hyperparameter tuning could further increase the cross-validation score.
+In summary, the learning curve indicates that your kNN model is overfitting (due to the large gap between training and CV scores) but is showing promise for better generalization as you add more training data or refine the model parameters.
+
+
+Για καμπύλες στο Random Forest:
+Learning Curve
+Training R² near 1.0: This is normal for Random Forests (especially with enough depth), because they can fit the training data very closely.
+Validation R² increasing with more data: This shows that as you feed more training examples into the model, it generalizes better (the validation R² goes up). Eventually, it levels off, indicating you may be approaching the limit of what the current model can learn from the available data.
+Overall, the learning curve suggests your model is benefitting from more training data, and there isn’t a large gap at the end between training and validation performance. That’s usually a good sign.
+
+Residual Plot
+What is a residual plot?
+A residual plot typically shows residuals (actual value − predicted value) on the y‑axis vs. predicted values (or sometimes actual values) on the x‑axis.
+How to interpret it:
+If your model is doing a good job without systematic bias, you expect the residuals to be randomly scattered around 0.
+A clear pattern (e.g., a curve or “funnel” shape) could mean the model is missing a key relationship or that there is heteroscedasticity (unequal variance across different ranges).
+Large positive or negative residuals indicate individual points where the model’s prediction is off by a bigger margin.
+In your residual plot, most points cluster around zero with a few outliers. That’s fairly normal. There isn’t an obvious “funnel” or strong curve, so the model does not show glaring systematic errors. However, you do see some points far from zero, meaning there are certain predictions where the model is under‑ or over‑predicting by a sizable amount. That can happen if your dataset has high variance or a few unusual data points.
+
+In Summary
+Yes, the curves look correct. The learning curve shows a typical Random Forest behavior (high training R², steadily increasing validation R²), and the residual plot looks reasonably scattered.
+The residual plot is essentially telling you how far off each prediction is from its actual value. Seeing it centered around zero with no major pattern is usually a sign your model is capturing the main relationships in the data.

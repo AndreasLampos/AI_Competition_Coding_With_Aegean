@@ -82,6 +82,28 @@ month_rank = {month: rank+1 for rank, month in enumerate(monthly_avg_pax_sorted.
 # Add the ranking to the dataset
 final_df['Month_Rank'] = final_df['Month'].map(month_rank)
 
+# Calculate the average airplane capacity for each month for domestic flights
+final_df['average_airplane_capacity_D'] = final_df['seats_D'] / final_df['flights_D']
+
+#Calculate the average airplane capacity for each month for international flights
+final_df['average_airplane_capacity_I'] = final_df['seats_I'] / final_df['flights_I']
+
+# Calculate the overall average airplane capacity for domestic flights
+average_airplane_capacity_D = final_df['average_airplane_capacity_D'].mean()
+
+#Calculate the overall average airplane capacity for international flights
+average_airplane_capacity_I = final_df['average_airplane_capacity_I'].mean()
+
+# Print the results 
+print("\nAverage Airplane Capacity for Each Month for Domestic Flights:")
+print(final_df[['Year', 'Month', 'average_airplane_capacity_D']])
+
+print("\nAverage Airplane Capacity for Each Month for International Flights:")
+print(final_df[['Year', 'Month', 'average_airplane_capacity_I']])
+
+print(f"\nOverall Average Airplane Capacity (Domestic): {average_airplane_capacity_D:.2f}")
+print(f"Overall Average Airplane Capacity (International): {average_airplane_capacity_I:.2f}")
+
 # Reorder columns as requested
 final_df = final_df[[
     'Year', 'Month', 'pax_D', 'seats_D', 'flights_D', 'avg_fare_D', 'pax_I',

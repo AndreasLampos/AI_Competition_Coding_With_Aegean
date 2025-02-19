@@ -5,7 +5,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
 
 # Read the CSV file
-df = pd.read_csv('deepthink_data.csv')
+df = pd.read_csv('Data Files\deepthink_data.csv')
 
 # Define features and targets
 X = df[['avg_fare_D', 'avg_fare_I', 'capacities_D', 'capacities_I', 'month_rank']]
