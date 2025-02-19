@@ -5,6 +5,8 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import make_scorer, mean_absolute_error, r2_score
 from scipy.optimize import minimize_scalar
+import matplotlib.pyplot as plt
+from sklearn.model_selection import learning_curve
 
 # ===============================
 # Step 1: Load and Inspect the Data
@@ -149,6 +151,71 @@ print(f"  Testing R² Score: {test_r2_D:.2f}")
 print("\nInternational Model:")
 print(f"  Training R² Score: {train_r2_I:.2f}")
 print(f"  Testing R² Score: {test_r2_I:.2f}")
+
+
+
+def plot_learning_curve(estimator, title, X, y, cv, n_jobs=1, train_sizes=np.linspace(0.1, 1.0, 10)):
+    """
+    Generates a plot of the training and cross-validation learning curves.
+    
+    Parameters:
+      estimator: The model to evaluate.
+      title: Title for the chart.
+      X: Feature data.
+      y: Target values.
+      cv: Cross-validation splitting strategy.
+      n_jobs: Number of jobs to run in parallel.
+      train_sizes: Relative or absolute numbers of training examples that will be used to generate the learning curve.
+    """
+    plt.figure(figsize=(10, 6))
+    plt.title(title)
+    plt.xlabel("Training examples")
+    plt.ylabel("R² Score")
+    
+    train_sizes, train_scores, test_scores = learning_curve(
+        estimator, X, y, cv=cv, n_jobs=n_jobs, train_sizes=train_sizes, scoring='r2'
+    )
+    
+    train_scores_mean = np.mean(train_scores, axis=1)
+    train_scores_std = np.std(train_scores, axis=1)
+    test_scores_mean = np.mean(test_scores, axis=1)
+    test_scores_std = np.std(test_scores, axis=1)
+    
+    plt.grid(True)
+    
+    # Plot the mean and std deviation for training scores
+    plt.fill_between(train_sizes, train_scores_mean - train_scores_std,
+                     train_scores_mean + train_scores_std, alpha=0.1, color="r")
+    plt.plot(train_sizes, train_scores_mean, 'o-', color="r", label="Training score")
+    
+    # Plot the mean and std deviation for cross-validation scores
+    plt.fill_between(train_sizes, test_scores_mean - test_scores_std,
+                     test_scores_mean + test_scores_std, alpha=0.1, color="g")
+    plt.plot(train_sizes, test_scores_mean, 'o-', color="g", label="Cross-validation score")
+    
+    plt.legend(loc="best")
+    plt.show()
+
+# Plot learning curve for the Domestic kNN model
+plot_learning_curve(
+    estimator=model_D_knn,
+    title="Learning Curve (Domestic kNN Regression)",
+    X=scaler_D.transform(df[features_D]),
+    y=df[target_pax_D],
+    cv=cv_folds,
+    n_jobs=-1
+)
+
+# Plot learning curve for the International kNN model
+plot_learning_curve(
+    estimator=model_I_knn,
+    title="Learning Curve (International kNN Regression)",
+    X=scaler_I.transform(df[features_I]),
+    y=df[target_pax_I],
+    cv=cv_folds,
+    n_jobs=-1
+)
+
 
 # ===============================
 # Step 7: Interactive New Month Prediction & Optimization
