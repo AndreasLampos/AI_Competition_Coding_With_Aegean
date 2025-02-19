@@ -5,7 +5,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 from xgboost import XGBRegressor
 
 # Read the CSV file
-df = pd.read_csv('deepthink_data.csv')
+df = pd.read_csv('Data Files\deepthink_data.csv')
 
 # Define features and targets
 X = df[['avg_fare_D', 'avg_fare_I', 'capacities_D', 'capacities_I', 'month_rank']]
@@ -14,23 +14,23 @@ y_I = df['pax_I']
 
 # Split the data into training and testing sets (80-20 split)
 X_train, X_test, y_D_train, y_D_test, y_I_train, y_I_test = train_test_split(
-    X, y_D, y_I, test_size=0.2, random_state=42
+    X, y_D, y_I, test_size=0.2, random_state=64
 )
 
 # Create and train XGBoost models
 model_D = XGBRegressor(
-    n_estimators=100,
+    n_estimators=200,
     learning_rate=0.1,
     max_depth=5,
-    random_state=42
+    random_state=64
 )
 model_D.fit(X_train, y_D_train)
 
 model_I = XGBRegressor(
-    n_estimators=100,
+    n_estimators=200,
     learning_rate=0.1,
     max_depth=5,
-    random_state=42
+    random_state=64
 )
 model_I.fit(X_train, y_I_train)
 
@@ -70,3 +70,5 @@ print(f"Predicted Domestic Passengers: {example_pred_D[0]:.0f}")
 print(f"Actual Domestic Passengers: {y_D_test.iloc[0]:.0f}")
 print(f"Predicted International Passengers: {example_pred_I[0]:.0f}")
 print(f"Actual International Passengers: {y_I_test.iloc[0]:.0f}")
+
+    
