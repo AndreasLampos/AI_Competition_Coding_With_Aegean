@@ -14,13 +14,41 @@ class FlightType(Enum):
     DOMESTIC = 'D'
     INTERNATIONAL = 'I'
 
+# Predict using all models
+def predict_with_models(models, X_data, weights, scaler=None):
+    predictions = []
+    for name, model in models.items():
+        if name == 'kNN':
+            pred = model.predict(scaler.transform(X_data))
+        else:
+            pred = model.predict(X_data)
+        predictions.append(pred * weights[name])
+    return np.sum(predictions, axis=0)
+
+def get_user_data(flight_type: FlightType):
+    try:
+        year = int(input("Enter year: "))
+        month = int(input("Enter month (1-12): "))
+        avg_fare = float(input(f"Enter avg_fare_{flight_type.value} (ticket price): "))
+        selling_prices = float(input("Enter selling_prices: "))
+        capacities = float(input(f"Enter capacities_{flight_type.value}: "))
+        
+        # Calculate month_rank based on demand (1 for August, 12 for February)
+        demand_order = [2, 12, 11, 10, 6, 5, 4, 1, 3, 9, 7, 8]  # August is 1, February is 12
+        month_rank = demand_order[month - 1]
+        
+        return year, month_rank, avg_fare, selling_prices, capacities
+    except ValueError:
+        print("Please enter valid numeric inputs.")
+        return None
+
 def predict_passengers(flight_type: FlightType):
     # Load the data
     df = pd.read_csv('Data Files/deepthink_data.csv')
 
     # Feature engineering
     df['year'] = df['year'].astype(int)
-    df['month'] = pd.to_datetime(df['month'], format='%B').dt.month  # Convert month to numeric
+    df['month'] = pd.to_datetime(df['month'], format='%B').dt.month
 
     # Define features and target
     features = ['year', 'month_rank', f'avg_fare_{flight_type.value}', 'selling_prices', f'capacities_{flight_type.value}']
@@ -93,17 +121,6 @@ def predict_passengers(flight_type: FlightType):
     # Calculate weights based on test R² scores
     weights = {k: v / sum(r2_scores_test.values()) for k, v in r2_scores_test.items()}
 
-    # Predict using all models
-    def predict_with_models(models, X_data, weights, scaler=None):
-        predictions = []
-        for name, model in models.items():
-            if name == 'kNN':
-                pred = model.predict(scaler.transform(X_data))
-            else:
-                pred = model.predict(X_data)
-            predictions.append(pred * weights[name])
-        return np.sum(predictions, axis=0)
-
     # Final predictions for test data
     final_pred = predict_with_models(models, X_test, weights, scaler)
 
@@ -125,8 +142,28 @@ def predict_passengers(flight_type: FlightType):
 
     print(f"\nFinal R² Score for {flight_type.name} Ensemble - Train: {final_r2_train:.4f}, Test: {final_r2_test:.4f}")
 
-    return final_pred
+    return models, scaler, weights, features
 
-# Example usage
-domestic_predictions = predict_passengers(FlightType.DOMESTIC)
-international_predictions = predict_passengers(FlightType.INTERNATIONAL)
+def predict_new_data(flight_type: FlightType, models, scaler, weights, features):
+    user_data = get_user_data(flight_type)
+    if user_data:
+        input_data = pd.DataFrame([user_data], columns=features)
+
+        # Use the ensemble prediction method
+        prediction = predict_with_models(models, input_data, weights, scaler)
+
+        print(f"\nPredicted Number of {flight_type.name} Passengers: {prediction[0]:.0f}")
+
+# Train models for both domestic and international flights
+domestic_models, domestic_scaler, domestic_weights, domestic_features = predict_passengers(FlightType.DOMESTIC)
+international_models, international_scaler, international_weights, international_features = predict_passengers(FlightType.INTERNATIONAL)
+
+# Get user input for flight type
+flight_type_str = input("Enter flight type (DOMESTIC or INTERNATIONAL): ").upper()
+flight_type = FlightType[flight_type_str]
+
+# Predict for new data based on chosen flight type
+if flight_type == FlightType.DOMESTIC:
+    predict_new_data(FlightType.DOMESTIC, domestic_models, domestic_scaler, domestic_weights, domestic_features)
+elif flight_type == FlightType.INTERNATIONAL:
+    predict_new_data(FlightType.INTERNATIONAL, international_models, international_scaler, international_weights, international_features)
