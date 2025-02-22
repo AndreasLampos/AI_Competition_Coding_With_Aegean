@@ -25,14 +25,8 @@ def predict_with_models(models, X_data, weights, scaler=None):
         predictions.append(pred * weights[name])
     return np.sum(predictions, axis=0)
 
-def get_user_data(flight_type: FlightType):
+def get_user_data(year, month, avg_fare, selling_prices, capacities, flight_type: FlightType):
     try:
-        year = int(input("Enter year: "))
-        month = int(input("Enter month (1-12): "))
-        avg_fare = float(input(f"Enter avg_fare_{flight_type.value} (ticket price): "))
-        selling_prices = float(input("Enter selling_prices: "))
-        capacities = float(input(f"Enter capacities_{flight_type.value}: "))
-        
         # Calculate month_rank based on demand (1 for August, 12 for February)
         demand_order = [2, 12, 11, 10, 6, 5, 4, 1, 3, 9, 7, 8]  # August is 1, February is 12
         month_rank = demand_order[month - 1]
@@ -144,26 +138,35 @@ def predict_passengers(flight_type: FlightType):
 
     return models, scaler, weights, features
 
-def predict_new_data(flight_type: FlightType, models, scaler, weights, features):
-    user_data = get_user_data(flight_type)
+def predict_new_data(year, month, avg_fare, selling_prices, capacities, flight_type: FlightType, models, scaler, weights, features):
+    user_data = get_user_data(year, month, avg_fare, selling_prices, capacities, flight_type)
     if user_data:
         input_data = pd.DataFrame([user_data], columns=features)
 
         # Use the ensemble prediction method
         prediction = predict_with_models(models, input_data, weights, scaler)
 
-        print(f"\nPredicted Number of {flight_type.name} Passengers: {prediction[0]:.0f}")
+        return prediction[0]
 
-# Train models for both domestic and international flights
-domestic_models, domestic_scaler, domestic_weights, domestic_features = predict_passengers(FlightType.DOMESTIC)
-international_models, international_scaler, international_weights, international_features = predict_passengers(FlightType.INTERNATIONAL)
+def main(year, month, avg_fare, selling_prices, capacities, flight_type_str):
+    # Train models for both domestic and international flights
+    domestic_models, domestic_scaler, domestic_weights, domestic_features = predict_passengers(FlightType.DOMESTIC)
+    international_models, international_scaler, international_weights, international_features = predict_passengers(FlightType.INTERNATIONAL)
 
-# Get user input for flight type
-flight_type_str = input("Enter flight type (DOMESTIC or INTERNATIONAL): ").upper()
-flight_type = FlightType[flight_type_str]
+    flight_type = FlightType[flight_type_str.upper()]
 
-# Predict for new data based on chosen flight type
-if flight_type == FlightType.DOMESTIC:
-    predict_new_data(FlightType.DOMESTIC, domestic_models, domestic_scaler, domestic_weights, domestic_features)
-elif flight_type == FlightType.INTERNATIONAL:
-    predict_new_data(FlightType.INTERNATIONAL, international_models, international_scaler, international_weights, international_features)
+    # Predict for new data based on chosen flight type
+    if flight_type == FlightType.DOMESTIC:
+        return predict_new_data(year, month, avg_fare, selling_prices, capacities, FlightType.DOMESTIC, domestic_models, domestic_scaler, domestic_weights, domestic_features)
+    elif flight_type == FlightType.INTERNATIONAL:
+        return predict_new_data(year, month, avg_fare, selling_prices, capacities, FlightType.INTERNATIONAL, international_models, international_scaler, international_weights, international_features)
+
+if __name__ == "__main__":
+    # Example usage
+    year = 2025
+    month = 8
+    avg_fare = 300.0
+    selling_prices = 350.0
+    capacities = 150.0
+    flight_type_str = 'DOMESTIC'
+    print(main(year, month, avg_fare, selling_prices, capacities, flight_type_str))
