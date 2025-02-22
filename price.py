@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+
 def logistic_price(t,c, alpha=100, delta=100, k=0.05, t0=150,gamma=80):
     """
     Logistic S-curve for airline price:
