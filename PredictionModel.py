@@ -195,7 +195,7 @@ def simulate_domestic_predictions_by_month():
     models, scaler, weights, features = predict_passengers(FlightType.DOMESTIC, filter_month=target_month)
 
     # Load dataset to extract competitor prices, seats, and load factor
-    df = pd.read_csv('Data Files/deepthink_data_v2.csv')
+    df = pd.read_csv('aegean_airlines_data_2000_2023.csv')
     df['year'] = df['year'].astype(int)
     df['month'] = pd.to_datetime(df['month'], format='%B').dt.month
 
