@@ -9,6 +9,7 @@ from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 from sklearn.pipeline import Pipeline
 from enum import Enum
+from price import logistic_price_table
 
 class FlightType(Enum):
     DOMESTIC = 'D'
@@ -147,6 +148,8 @@ def predict_new_data(year, month, avg_fare, selling_prices, capacities, flight_t
         prediction = predict_with_models(models, input_data, weights, scaler)
 
         return prediction[0]
+    
+
 
 def main(year, month, avg_fare, selling_prices, capacities, flight_type_str):
     # Train models for both domestic and international flights
@@ -170,3 +173,4 @@ if __name__ == "__main__":
     capacities = 150.0
     flight_type_str = 'DOMESTIC'
     print(main(year, month, avg_fare, selling_prices, capacities, flight_type_str))
+    print(price.logistic_price_table())
