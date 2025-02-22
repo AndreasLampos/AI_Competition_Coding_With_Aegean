@@ -305,9 +305,9 @@ if __name__ == "__main__":
     # Example usage with 7 parameters
     year = 2024
     month = 8
-    avg_fare_D = 300.0       # Domestic average fare
-    avg_fare_I = 320.0       # International average fare (example value)
-    competitors_price_D = 350.0  # Domestic competitor price
-    competitors_price_I = 360.0  # International competitor price (example value)
-    flight_type_str = 'INTERNATIONAL'  # 'DOMESTIC' or 'INTERNATIONAL'
+    avg_fare_D = 40.0       # Domestic average fare
+    avg_fare_I = 150.0       # International average fare (example value)
+    competitors_price_D = 50.0  # Domestic competitor price
+    competitors_price_I = 260.0  # International competitor price (example value)
+    flight_type_str = 'DOMESTIC'  # 'DOMESTIC' or 'INTERNATIONAL'
     print(main(year, month, avg_fare_D, avg_fare_I, competitors_price_D, competitors_price_I, flight_type_str))
