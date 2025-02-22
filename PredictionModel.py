@@ -38,7 +38,7 @@ def get_user_data(year, month, avg_fare, selling_prices, capacities, flight_type
 
 def predict_passengers(flight_type: FlightType):
     # Load the data
-    df = pd.read_csv('Data Files/deepthink_data.csv')
+    df = pd.read_csv('Data Files/deepthink_data_v2.csv')
 
     # Feature engineering
     df['year'] = df['year'].astype(int)
