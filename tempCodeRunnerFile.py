@@ -144,71 +144,45 @@ def predict_passengers(flight_type: FlightType):
 
     return models, scaler, ensemble_weights, features
 
-# New helper function: compute weighted competitor price using lagged data
-def compute_weighted_competitor_price(df, flight_type: FlightType, target_year, target_month, weights=(0.6, 0.3, 0.1)):
-    competitor_col = f"competitors_price_{flight_type.value}"
-    competitor_values = []
-    for lag in range(1, 4):
-        value = df.loc[(df['year'] == target_year - lag) & (df['month'] == target_month), competitor_col]
-        if not value.empty:
-            competitor_values.append(value.iloc[0])
-        else:
-            competitor_values.append(np.nan)
-    competitor_values = np.array(competitor_values, dtype=float)
-    if np.isnan(competitor_values).any():
-        competitor_values = np.where(np.isnan(competitor_values), np.nanmean(competitor_values), competitor_values)
-    weighted_price = (competitor_values[0] * weights[0] +
-                      competitor_values[1] * weights[1] +
-                      competitor_values[2] * weights[2])
-    return weighted_price
-
-# Main prediction function (competitor prices calculated from lagged data)
-def main(year, month, avg_fare_D, avg_fare_I, flight_type_str):
+# Main prediction function
+def main(year, month, avg_fare_D, avg_fare_I, competitors_price_D, competitors_price_I, flight_type_str):
     month_ranks = {
         1: 10, 2: 12, 3: 11, 4: 9, 5: 6, 6: 4, 7: 3, 8: 1, 9: 2, 10: 7, 11: 5, 12: 8
     }
     
-    # Train models for both flight types
     domestic_models, domestic_scaler, domestic_weights, domestic_features = predict_passengers(FlightType.DOMESTIC)
     international_models, international_scaler, international_weights, international_features = predict_passengers(FlightType.INTERNATIONAL)
     flight_type = FlightType[flight_type_str.upper()]
     
-    # Load dataset to compute weighted competitor price
-    df = pd.read_csv('Data Files/deepthink_data_v2.csv')
-    df['year'] = df['year'].astype(int)
-    df['month'] = pd.to_datetime(df['month'], format='%B').dt.month
-    
     if flight_type == FlightType.DOMESTIC:
-        weighted_competitor_price = compute_weighted_competitor_price(df, FlightType.DOMESTIC, year, month)
+        df = pd.read_csv('Data Files/deepthink_data_v2.csv')
         mean_seats_D = df['seats_D'].mean()
         mean_lf_D = df['LF_D'].mean()
-        # Order: year, month, avg_fare_D, weighted_selling_prices, seats_D, LF_D
-        user_data = (year, month, avg_fare_D, weighted_competitor_price, mean_seats_D, mean_lf_D)
+        user_data = (year, month, avg_fare_D, competitors_price_D, mean_seats_D, mean_lf_D)
         input_data = pd.DataFrame([user_data], columns=domestic_features)
         input_data['avg_fare_D'] = np.log1p(input_data['avg_fare_D'])
         prediction_log = predict_with_models(domestic_models, input_data, domestic_weights, domestic_scaler)
         initial_pax = np.expm1(prediction_log)[0]
         
         month_rank = month_ranks[month]
-        adjusted_pax = adjust_passengers(initial_pax, avg_fare_D, weighted_competitor_price, month_rank)
+        adjusted_pax = adjust_passengers(initial_pax, avg_fare_D, competitors_price_D, month_rank)
         
         print(f"Initial predicted {flight_type.name} passengers: {initial_pax:.0f}")
         print(f"Adjusted predicted {flight_type.name} passengers: {adjusted_pax:.0f}")
         return adjusted_pax
     
     elif flight_type == FlightType.INTERNATIONAL:
-        weighted_competitor_price = compute_weighted_competitor_price(df, FlightType.INTERNATIONAL, year, month)
+        df = pd.read_csv('Data Files/deepthink_data_v2.csv')
         mean_seats_I = df['seats_I'].mean()
         mean_lf_I = df['LF_I'].mean()
-        # Order: year, month, avg_fare_I, weighted_selling_prices, seats_I, LF_I
-        user_data = (year, month, avg_fare_I, weighted_competitor_price, mean_seats_I, mean_lf_I)
+        user_data = (year, month, avg_fare_I, competitors_price_I, mean_seats_I, mean_lf_I)
         input_data = pd.DataFrame([user_data], columns=international_features)
         input_data['avg_fare_I'] = np.log1p(input_data['avg_fare_I'])
         prediction_log = predict_with_models(international_models, input_data, international_weights, international_scaler)
         initial_pax = np.expm1(prediction_log)[0]
         
         month_rank = month_ranks[month]
-        adjusted_pax = adjust_passengers(initial_pax, avg_fare_I, weighted_competitor_price, month_rank)
+        adjusted_pax = adjust_passengers(initial_pax, avg_fare_I, competitors_price_I, month_rank)
         
         print(f"Initial predicted {flight_type.name} passengers: {initial_pax:.0f}")
         print(f"Adjusted predicted {flight_type.name} passengers: {adjusted_pax:.0f}")
@@ -220,6 +194,8 @@ if __name__ == "__main__":
     month = 8
     avg_fare_D = 70.0
     avg_fare_I = 150.0
+    competitors_price_D = 50.0
+    competitors_price_I = 260.0
     flight_type_str = 'DOMESTIC'
-    result = main(year, month, avg_fare_D, avg_fare_I, flight_type_str)
+    result = main(year, month, avg_fare_D, avg_fare_I, competitors_price_D, competitors_price_I, flight_type_str)
     print(f"Final result: {result:.0f}")
