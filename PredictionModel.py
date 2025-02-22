@@ -77,7 +77,7 @@ def predict_passengers(flight_type: FlightType, filter_month=None):
     y = np.log1p(y)
 
     # Split the data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=64)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False, random_state=64)
 
     # Function for grid search and fitting
     def grid_search_and_fit(model, params, X_train, y_train):
@@ -303,7 +303,7 @@ def main(year, month, avg_fare_D, avg_fare_I, competitors_price_D, competitors_p
 
 if __name__ == "__main__":
     # Example usage with 7 parameters
-    year = 2025
+    year = 2024
     month = 8
     avg_fare_D = 300.0       # Domestic average fare
     avg_fare_I = 320.0       # International average fare (example value)
