@@ -271,7 +271,7 @@ def adjust_passengers(pax_forecast, avg_fare, competitor_price, month_rank, sens
     adjusted_forecast = pax_forecast * adjustment_factor
     return max(adjusted_forecast, 0)  # ensure non-negative
 
-def main(year, month, avg_fare, selling_prices, capacities, flight_type_str):
+def main(year, month, avg_fare_D, avg_fare_I, competitors_price_D, competitors_price_I, flight_type_str):
     # Train models for both domestic and international flights
     domestic_models, domestic_scaler, domestic_weights, domestic_features = predict_passengers(FlightType.DOMESTIC)
     international_models, international_scaler, international_weights, international_features = predict_passengers(FlightType.INTERNATIONAL)
@@ -280,33 +280,34 @@ def main(year, month, avg_fare, selling_prices, capacities, flight_type_str):
 
     # Predict based on flight type
     if flight_type == FlightType.DOMESTIC:
-        # For simplicity, assume load factor mean from data
+        # For simplicity, assume load factor and seats mean from data
         df = pd.read_csv('Data Files/deepthink_data_v2.csv')
         mean_seats_D = df['seats_D'].mean()
         mean_lf_D = df['LF_D'].mean()
-        user_data = (year, month, avg_fare, selling_prices, capacities, mean_lf_D)
+        # Now provide all 6 values: year, month, avg_fare_D, weighted_selling_prices, seats_D, LF_D
+        user_data = (year, month, avg_fare_D, competitors_price_D, mean_seats_D, mean_lf_D)
         input_data = pd.DataFrame([user_data], columns=domestic_features)
         input_data['avg_fare_D'] = np.log1p(input_data['avg_fare_D'])
         prediction_log = predict_with_models(domestic_models, input_data, domestic_weights, domestic_scaler)
         return np.expm1(prediction_log)[0]
     elif flight_type == FlightType.INTERNATIONAL:
-        # For simplicity, assume load factor mean from data
         df = pd.read_csv('Data Files/deepthink_data_v2.csv')
         mean_seats_I = df['seats_I'].mean()
         mean_lf_I = df['LF_I'].mean()
-        user_data = (year, month, avg_fare, selling_prices, capacities, mean_lf_I)
+        # Provide all 6 values for international: year, month, avg_fare_I, weighted_selling_prices, seats_I, LF_I
+        user_data = (year, month, avg_fare_I, competitors_price_I, mean_seats_I, mean_lf_I)
         input_data = pd.DataFrame([user_data], columns=international_features)
         input_data['avg_fare_I'] = np.log1p(input_data['avg_fare_I'])
         prediction_log = predict_with_models(international_models, input_data, international_weights, international_scaler)
         return np.expm1(prediction_log)[0]
 
 if __name__ == "__main__":
-    # Example usage
+    # Example usage with 7 parameters
     year = 2025
     month = 8
-    avg_fare = 300.0
-    selling_prices = 350.0
-    capacities = 150.0
-    flight_type_str = 'DOMESTIC'
-    print(main(year, month, avg_fare, selling_prices, capacities, flight_type_str))
-    print(main(year, month, avg_fare, selling_prices, capacities, flight_type_str))
+    avg_fare_D = 300.0       # Domestic average fare
+    avg_fare_I = 320.0       # International average fare (example value)
+    competitors_price_D = 350.0  # Domestic competitor price
+    competitors_price_I = 360.0  # International competitor price (example value)
+    flight_type_str = 'INTERNATIONAL'  # 'DOMESTIC' or 'INTERNATIONAL'
+    print(main(year, month, avg_fare_D, avg_fare_I, competitors_price_D, competitors_price_I, flight_type_str))
