@@ -8,7 +8,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 from enum import Enum
-from price import logistic_price_table
+import price
+
 
 class FlightType(Enum):
     DOMESTIC = 'D'
