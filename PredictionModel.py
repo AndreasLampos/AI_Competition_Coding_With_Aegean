@@ -37,35 +37,40 @@ def get_user_data(flight_type: FlightType):
         print("Please enter valid numeric inputs.")
         return None
 
-# Modified training function: add filter_month so that we can train on a specific month only
 def predict_passengers(flight_type: FlightType, filter_month=None):
     # Load the data
     df = pd.read_csv('Data Files/deepthink_data_v2.csv')
-
+    
+    # Use the correct competitor price column based on flight type
+    competitor_col = f"competitors_price_{flight_type.value}"
+    if competitor_col not in df.columns:
+        raise KeyError(f"Column not found: {competitor_col}")
+    
     # Convert year and month (assuming month is stored as full month name)
     df['year'] = df['year'].astype(int)
     df['month'] = pd.to_datetime(df['month'], format='%B').dt.month
 
-    # If a filter month is provided, only keep data for that month
+    # Filter by month, if provided
     if filter_month is not None:
         df = df[df['month'] == filter_month]
 
-    # Create lagged competitor selling prices columns (for the same month, previous 3 years)
-    df['selling_prices_lag1'] = df.groupby('month')['selling_prices'].shift(1)
-    df['selling_prices_lag2'] = df.groupby('month')['selling_prices'].shift(2)
-    df['selling_prices_lag3'] = df.groupby('month')['selling_prices'].shift(3)
+    # Create lagged competitor selling prices columns (using the correct column)
+    df['selling_prices_lag1'] = df.groupby('month')[competitor_col].shift(1)
+    df['selling_prices_lag2'] = df.groupby('month')[competitor_col].shift(2)
+    df['selling_prices_lag3'] = df.groupby('month')[competitor_col].shift(3)
     
     # Calculate weighted competitor selling price using weights 0.6, 0.3, 0.1
     df['weighted_selling_prices'] = (df['selling_prices_lag1'] * 0.6 +
                                      df['selling_prices_lag2'] * 0.3 +
                                      df['selling_prices_lag3'] * 0.1)
-    # For rows with missing lagged values, fill with the current selling_prices value
-    df['weighted_selling_prices'].fillna(df['selling_prices'], inplace=True)
+    # For rows with missing lagged values, fill with the current competitor price column value
+    df['weighted_selling_prices'].fillna(df[competitor_col], inplace=True)
     
-    # Define features and target (capacity removed)
+    # Define features and target (using the appropriate avg_fare and pax columns)
     features = ['year', 'month', f'avg_fare_{flight_type.value}', 'weighted_selling_prices']
     X = df[features]
     y = df[f'pax_{flight_type.value}']
+    
 
     # Split the data
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=64)
@@ -166,9 +171,7 @@ def predict_new_data(flight_type: FlightType, models, scaler, weights, features)
 
         return prediction[0]
     
-# Simulation function that trains a month-specific model and uses competitor lags for that month
 def simulate_domestic_predictions_by_month():
-    import numpy as np
     print("Starting simulation by month...")
 
     # Prompt user for target simulation year and month
@@ -178,14 +181,16 @@ def simulate_domestic_predictions_by_month():
     # Train a model using only data from the target month
     models, scaler, weights, features = predict_passengers(FlightType.DOMESTIC, filter_month=target_month)
 
-    # Load dataset (again) to extract competitor selling prices for the target month from previous 3 years
-    df = pd.read_csv('Data Files/deepthink_data.csv')
+    # Load dataset (again) to extract competitor prices for the target month from previous 3 years
+    df = pd.read_csv('Data Files/deepthink_data_v2.csv')
     df['year'] = df['year'].astype(int)
     df['month'] = pd.to_datetime(df['month'], format='%B').dt.month
 
     competitor_values = []
+    # Use the appropriate competitor price column for domestic, i.e. "competitors_price_D"
+    competitor_col = "competitors_price_D"
     for lag in range(1, 4):
-        value = df.loc[(df['year'] == target_year - lag) & (df['month'] == target_month), 'selling_prices']
+        value = df.loc[(df['year'] == target_year - lag) & (df['month'] == target_month), competitor_col]
         if not value.empty:
             competitor_values.append(value.iloc[0])
         else:
@@ -194,9 +199,9 @@ def simulate_domestic_predictions_by_month():
     if np.isnan(competitor_values).any():
         competitor_values = np.where(np.isnan(competitor_values), np.nanmean(competitor_values), competitor_values)
 
-    # Compute weighted competitor selling price using weights: 0.5, 0.3, 0.2
+    # Compute weighted competitor price using weights: 0.5, 0.3, 0.2
     weighted_competitor_price = competitor_values[0] * 0.5 + competitor_values[1] * 0.3 + competitor_values[2] * 0.2
-    print("Using weighted competitor selling price:", weighted_competitor_price)
+    print("Using weighted competitor price:", weighted_competitor_price)
 
     # Define a range of avg_fare values to test (ensure these are within your training range)
     avg_fare_values = np.linspace(50, 200, 10)
@@ -234,4 +239,3 @@ if __name__ == "__main__":
     capacities = 150.0
     flight_type_str = 'DOMESTIC'
     print(main(year, month, avg_fare, selling_prices, capacities, flight_type_str))
-    print(price.logistic_price_table())
