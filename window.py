@@ -11,7 +11,7 @@ def main_window():
     root = tk.Tk()
     root.title("Aegean Demand Forecasting")
     root.geometry("1200x800")
-    root.configure(bg="lightgrey")
+    root.configure(bg="white")
 
     # Add widgets
     label = tk.Label(root, text="Enter something:", font=("Arial", 12))
@@ -46,9 +46,18 @@ def create_splash_screen():
     global splash, gif_label, gif_image, gif_frame_index
     
     splash = tk.Tk()
-    splash.title("Splash Screen")
+    splash.title("Aegean Demand Forecasting")
     splash.geometry("1200x800")
     splash.configure(bg="white")
+
+    # Create a frame to hold both the label and GIF
+    container = tk.Frame(splash, bg="white")
+    container.pack(expand=True)  # Expand to center vertically
+
+    # Label with text
+    label = tk.Label(container, text="Aegean Demand Forecasting\nAI Model",
+                     font=("TrebuchetMS", 32, "bold"), fg="blue", bg="white")
+    label.pack(pady=5)  # Reduce padding to move it closer to the GIF
 
     # Load GIF
     gif_path = "plane_loading.gif"  # Change to your actual GIF file
@@ -56,8 +65,8 @@ def create_splash_screen():
     gif_frame_index = 0
 
     # Label to display GIF
-    gif_label = tk.Label(splash, bg="white")
-    gif_label.pack(expand=True)
+    gif_label = tk.Label(container, bg="white")
+    gif_label.pack()  # Centered below the text
 
     # Start GIF animation
     update_gif()
