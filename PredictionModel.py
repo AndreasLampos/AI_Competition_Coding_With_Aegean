@@ -8,8 +8,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 from enum import Enum
-import price
-
 
 class FlightType(Enum):
     DOMESTIC = 'D'
@@ -32,8 +30,10 @@ def get_user_data(flight_type: FlightType):
         month = int(input("Enter month (1-12): "))
         avg_fare = float(input(f"Enter avg_fare_{flight_type.value} (ticket price): "))
         competitor_price = float(input("Enter competitor selling price: "))
-        # Order must match features: ['year', 'month', f'avg_fare_{flight_type.value}', 'weighted_selling_prices']
-        return year, month, avg_fare, competitor_price
+        seats = float(input(f"Enter seats_{flight_type.value} (available seats): "))
+        load_factor = float(input(f"Enter LF_{flight_type.value} (load factor, e.g., 0-100): "))
+        # Order must match features
+        return year, month, avg_fare, competitor_price, seats, load_factor
     except ValueError:
         print("Please enter valid numeric inputs.")
         return None
@@ -47,7 +47,7 @@ def predict_passengers(flight_type: FlightType, filter_month=None):
     if competitor_col not in df.columns:
         raise KeyError(f"Column not found: {competitor_col}")
     
-    # Convert year and month (assuming month is stored as full month name)
+    # Convert year and month
     df['year'] = df['year'].astype(int)
     df['month'] = pd.to_datetime(df['month'], format='%B').dt.month
 
@@ -55,7 +55,7 @@ def predict_passengers(flight_type: FlightType, filter_month=None):
     if filter_month is not None:
         df = df[df['month'] == filter_month]
 
-    # Create lagged competitor selling prices columns (using the correct column)
+    # Create lagged competitor selling prices columns
     df['selling_prices_lag1'] = df.groupby('month')[competitor_col].shift(1)
     df['selling_prices_lag2'] = df.groupby('month')[competitor_col].shift(2)
     df['selling_prices_lag3'] = df.groupby('month')[competitor_col].shift(3)
@@ -64,14 +64,17 @@ def predict_passengers(flight_type: FlightType, filter_month=None):
     df['weighted_selling_prices'] = (df['selling_prices_lag1'] * 0.6 +
                                      df['selling_prices_lag2'] * 0.3 +
                                      df['selling_prices_lag3'] * 0.1)
-    # For rows with missing lagged values, fill with the current competitor price column value
     df['weighted_selling_prices'].fillna(df[competitor_col], inplace=True)
     
-    # Define features and target (using the appropriate avg_fare and pax columns)
-    features = ['year', 'month', f'avg_fare_{flight_type.value}', 'weighted_selling_prices']
-    X = df[features]
+    # Define features and target with added seats and load factor
+    features = ['year', 'month', f'avg_fare_{flight_type.value}', 'weighted_selling_prices',
+                f'seats_{flight_type.value}', f'LF_{flight_type.value}']
+    X = df[features].copy()
     y = df[f'pax_{flight_type.value}']
     
+    # Apply log transformations
+    X[f'avg_fare_{flight_type.value}'] = np.log1p(X[f'avg_fare_{flight_type.value}'])
+    y = np.log1p(y)
 
     # Split the data
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=64)
@@ -126,7 +129,7 @@ def predict_passengers(flight_type: FlightType, filter_month=None):
         'RandomForest': rf_model
     }
 
-    # Compute R² scores for each model for train and test sets
+    # Compute R² scores for each model (on log scale)
     r2_scores_train = {}
     r2_scores_test = {}
     for name, model in models.items():
@@ -140,19 +143,27 @@ def predict_passengers(flight_type: FlightType, filter_month=None):
     # Calculate ensemble weights based on test R² scores
     ensemble_weights = {k: v / sum(r2_scores_test.values()) for k, v in r2_scores_test.items()}
 
-    # Ensemble predictions on test set
-    final_pred = predict_with_models(models, X_test, ensemble_weights, scaler)
+    # Ensemble predictions on test set (log scale)
+    final_pred_log = predict_with_models(models, X_test, ensemble_weights, scaler)
+    final_pred = np.expm1(final_pred_log)  # Back-transform to original scale
+    y_test_orig = np.expm1(y_test)  # Back-transform y_test
 
     # Ensemble predictions for training set
-    final_pred_train = predict_with_models(models, X_train, ensemble_weights, scaler)
-    final_r2_train = r2_score(y_train, final_pred_train)
-    final_r2_test = r2_score(y_test, final_pred)
+    final_pred_train_log = predict_with_models(models, X_train, ensemble_weights, scaler)
+    final_pred_train = np.expm1(final_pred_train_log)
+    y_train_orig = np.expm1(y_train)
+
+    # Compute R² on original scale
+    final_r2_train = r2_score(y_train_orig, final_pred_train)
+    final_r2_test = r2_score(y_test_orig, final_pred)
 
     # Print predictions and scores
     for i in range(len(final_pred)):
-        print(f"Predicted {flight_type.name} Passengers: {final_pred[i]:.0f}, Actual {flight_type.name} Passengers: {y_test.iloc[i]:.0f}, Difference: {final_pred[i] - y_test.iloc[i]:.0f}")
+        print(f"Predicted {flight_type.name} Passengers: {final_pred[i]:.0f}, "
+              f"Actual {flight_type.name} Passengers: {y_test_orig.iloc[i]:.0f}, "
+              f"Difference: {final_pred[i] - y_test_orig.iloc[i]:.0f}")
 
-    print(f"R² Scores for Individual Models ({flight_type.name}):")
+    print(f"R² Scores for Individual Models ({flight_type.name}) - Log Scale:")
     for name in models.keys():
         print(f"{name}: Train R² {r2_scores_train[name]:.4f}, Test R² {r2_scores_test[name]:.4f}")
 
@@ -160,7 +171,7 @@ def predict_passengers(flight_type: FlightType, filter_month=None):
     for name, weight in ensemble_weights.items():
         print(f"{name}: {weight:.4f}")
 
-    print(f"\nFinal R² Score for {flight_type.name} Ensemble - Train: {final_r2_train:.4f}, Test: {final_r2_test:.4f}")
+    print(f"\nFinal R² Score for {flight_type.name} Ensemble - Original Scale - Train: {final_r2_train:.4f}, Test: {final_r2_test:.4f}")
 
     return models, scaler, ensemble_weights, features
 
@@ -168,10 +179,11 @@ def predict_new_data(flight_type: FlightType, models, scaler, weights, features)
     user_data = get_user_data(flight_type)
     if user_data:
         input_data = pd.DataFrame([user_data], columns=features)
-        prediction = predict_with_models(models, input_data, weights, scaler)
-
+        input_data[f'avg_fare_{flight_type.value}'] = np.log1p(input_data[f'avg_fare_{flight_type.value}'])
+        prediction_log = predict_with_models(models, input_data, weights, scaler)
+        prediction = np.expm1(prediction_log)  # Back-transform to original scale
         return prediction[0]
-    
+
 def simulate_domestic_predictions_by_month():
     print("Starting simulation by month...")
 
@@ -182,13 +194,13 @@ def simulate_domestic_predictions_by_month():
     # Train a model using only data from the target month
     models, scaler, weights, features = predict_passengers(FlightType.DOMESTIC, filter_month=target_month)
 
-    # Load dataset (again) to extract competitor prices for the target month from previous 3 years
+    # Load dataset to extract competitor prices, seats, and load factor
     df = pd.read_csv('Data Files/deepthink_data_v2.csv')
     df['year'] = df['year'].astype(int)
     df['month'] = pd.to_datetime(df['month'], format='%B').dt.month
 
+    # Compute weighted competitor price
     competitor_values = []
-    # Use the appropriate competitor price column for domestic, i.e. "competitors_price_D"
     competitor_col = "competitors_price_D"
     for lag in range(1, 4):
         value = df.loc[(df['year'] == target_year - lag) & (df['month'] == target_month), competitor_col]
@@ -199,24 +211,65 @@ def simulate_domestic_predictions_by_month():
     competitor_values = np.array(competitor_values, dtype=float)
     if np.isnan(competitor_values).any():
         competitor_values = np.where(np.isnan(competitor_values), np.nanmean(competitor_values), competitor_values)
-
-    # Compute weighted competitor price using weights: 0.5, 0.3, 0.2
     weighted_competitor_price = competitor_values[0] * 0.5 + competitor_values[1] * 0.3 + competitor_values[2] * 0.2
     print("Using weighted competitor price:", weighted_competitor_price)
 
-    # Define a range of avg_fare values to test (ensure these are within your training range)
+    # Use mean seats and load factor as defaults
+    mean_seats = df['seats_D'].mean()
+    mean_lf = df['LF_D'].mean()
+    print(f"Using mean seats_D: {mean_seats:.0f}, mean LF_D: {mean_lf:.1f}")
+
+    # Define a range of avg_fare values to test
     avg_fare_values = np.linspace(50, 200, 10)
 
     for avg_fare in avg_fare_values:
         input_dict = {
             'year': target_year,
             'month': target_month,
-            f'avg_fare_D': avg_fare,
-            'weighted_selling_prices': weighted_competitor_price
+            'avg_fare_D': np.log1p(avg_fare),  # Log transform input
+            'weighted_selling_prices': weighted_competitor_price,
+            'seats_D': mean_seats,
+            'LF_D': mean_lf
         }   
         input_df = pd.DataFrame([input_dict], columns=features)
-        prediction = predict_with_models(models, input_df, weights, scaler)
+        prediction_log = predict_with_models(models, input_df, weights, scaler)
+        prediction = np.expm1(prediction_log)  # Back-transform to original scale
         print(f"For avg_fare_D = {avg_fare:.2f}, predicted domestic passengers = {prediction[0]:.0f}")
+
+def adjust_passengers(pax_forecast, avg_fare, competitor_price, month_rank, sensitivity=0.05):
+    """
+    Adjusts the predicted passengers based on the difference between avg fare and competitor price.
+    A positive difference (avg_fare > competitor_price) decreases passengers,
+    a negative difference increases passengers.
+    The adjustment is damped by the month_rank (with rank=1 meaning highest seasonality/demand).
+    
+    Parameters:
+        pax_forecast (float): initial predicted passengers from the model.
+        avg_fare (float): the airline's average fare.
+        competitor_price (float): competitor price (for the given flight type).
+        month_rank (int): seasonality ranking (1 is hottest, higher numbers are lower demand).
+        sensitivity (float): adjustment sensitivity factor.
+        
+    Returns:
+        float: adjusted passengers forecast.
+    """
+    diff = avg_fare - competitor_price
+    # Normalize difference by competitor's price for a relative measure
+    relative_diff = diff / competitor_price
+    # Dampening factor using month_rank. Lower rank (e.g. 1) means our adjustment is more muted.
+    dampening = 1 / month_rank  # you can adjust this formula if needed
+
+    if diff > 0:
+        # avg_fare higher than competitor: decrease passengers
+        adjustment_factor = 1 - sensitivity * relative_diff * dampening
+    elif diff < 0:
+        # avg_fare lower: increase forecast
+        adjustment_factor = 1 + sensitivity * abs(relative_diff) * dampening
+    else:
+        adjustment_factor = 1.0
+
+    adjusted_forecast = pax_forecast * adjustment_factor
+    return max(adjusted_forecast, 0)  # ensure non-negative
 
 def main(year, month, avg_fare, selling_prices, capacities, flight_type_str):
     # Train models for both domestic and international flights
@@ -225,11 +278,27 @@ def main(year, month, avg_fare, selling_prices, capacities, flight_type_str):
 
     flight_type = FlightType[flight_type_str.upper()]
 
-    # Predict for new data based on chosen flight type
+    # Predict based on flight type
     if flight_type == FlightType.DOMESTIC:
-        simulate_domestic_predictions_by_month()
+        # For simplicity, assume load factor mean from data
+        df = pd.read_csv('Data Files/deepthink_data_v2.csv')
+        mean_seats_D = df['seats_D'].mean()
+        mean_lf_D = df['LF_D'].mean()
+        user_data = (year, month, avg_fare, selling_prices, capacities, mean_lf_D)
+        input_data = pd.DataFrame([user_data], columns=domestic_features)
+        input_data['avg_fare_D'] = np.log1p(input_data['avg_fare_D'])
+        prediction_log = predict_with_models(domestic_models, input_data, domestic_weights, domestic_scaler)
+        return np.expm1(prediction_log)[0]
     elif flight_type == FlightType.INTERNATIONAL:
-        return predict_new_data(year, month, avg_fare, selling_prices, capacities, FlightType.INTERNATIONAL, international_models, international_scaler, international_weights, international_features)
+        # For simplicity, assume load factor mean from data
+        df = pd.read_csv('Data Files/deepthink_data_v2.csv')
+        mean_seats_I = df['seats_I'].mean()
+        mean_lf_I = df['LF_I'].mean()
+        user_data = (year, month, avg_fare, selling_prices, capacities, mean_lf_I)
+        input_data = pd.DataFrame([user_data], columns=international_features)
+        input_data['avg_fare_I'] = np.log1p(input_data['avg_fare_I'])
+        prediction_log = predict_with_models(international_models, input_data, international_weights, international_scaler)
+        return np.expm1(prediction_log)[0]
 
 if __name__ == "__main__":
     # Example usage
@@ -239,4 +308,5 @@ if __name__ == "__main__":
     selling_prices = 350.0
     capacities = 150.0
     flight_type_str = 'DOMESTIC'
+    print(main(year, month, avg_fare, selling_prices, capacities, flight_type_str))
     print(main(year, month, avg_fare, selling_prices, capacities, flight_type_str))
