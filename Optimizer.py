@@ -1,4 +1,4 @@
-from PredictionModel import main, compute_weighted_competitor_price, FlightType
+from PredictionModel import main, compute_lag_feature, FlightType
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,7 +29,7 @@ if __name__ == "__main__":
         for month in months:
             for flight_type in flight_types:
                 # Call the function using the DataFrame and FlightType enum
-                competitor_price = compute_weighted_competitor_price(df, FlightType[flight_type], year, month)
+                competitor_price = compute_lag_feature(df, FlightType[flight_type], year, month)
                 
                 # Generate a range of average fares (using an appropriate step)
                 avg_fares = np.arange(competitor_price * 0.7, competitor_price * 1.3, 1)

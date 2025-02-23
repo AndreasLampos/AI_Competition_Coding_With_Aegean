@@ -145,7 +145,7 @@ def predict_passengers(flight_type: FlightType):
     return models, scaler, ensemble_weights, features
 
 # New helper function: compute weighted competitor price using lagged data
-def compute_weighted_competitor_price(df, flight_type: FlightType, target_year, target_month, weights=(0.6, 0.3, 0.1)):
+def compute_lag_feature(df, flight_type: FlightType, target_year, target_month, weights=(0.6, 0.3, 0.1)):
     competitor_col = f"competitors_price_{flight_type.value}"
     competitor_values = []
     for lag in range(1, 4):
@@ -180,7 +180,7 @@ def main(year, month, avg_fare, flight_type_str):
     df['month'] = pd.to_datetime(df['month'], format='%B').dt.month
     
     if flight_type == FlightType.DOMESTIC:
-        weighted_competitor_price = compute_weighted_competitor_price(df, FlightType.DOMESTIC, year, month)
+        weighted_competitor_price = compute_lag_feature(df, FlightType.DOMESTIC, year, month)
         mean_seats = df['seats_D'].mean()
         mean_lf = df['LF_D'].mean()
         # Order of features: year, month, avg_fare_D, weighted_selling_prices, seats_D, LF_D
@@ -196,7 +196,7 @@ def main(year, month, avg_fare, flight_type_str):
         return adjusted_pax
     
     elif flight_type == FlightType.INTERNATIONAL:
-        weighted_competitor_price = compute_weighted_competitor_price(df, FlightType.INTERNATIONAL, year, month)
+        weighted_competitor_price = compute_lag_feature(df, FlightType.INTERNATIONAL, year, month)
         mean_seats = df['seats_I'].mean()
         mean_lf = df['LF_I'].mean()
         # Order of features: year, month, avg_fare_I, weighted_selling_prices, seats_I, LF_I
