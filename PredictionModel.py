@@ -161,7 +161,6 @@ def compute_lag_feature(df, flight_type: FlightType, target_year, target_month, 
                       competitor_values[1] * weights[1] +
                       competitor_values[2] * weights[2])
 
-    print(f"Weighted competitor price for {flight_type.name}: {weighted_price:.2f}")
     return weighted_price
 
 # New helper function: compute weighted seats using lagged data
@@ -225,8 +224,6 @@ def main(year, month, avg_fare, flight_type_str):
         month_rank = month_ranks[month]
         adjusted_pax = adjust_passengers(initial_pax, avg_fare, weighted_competitor_price, month_rank)
         
-        print(f"Initial predicted {flight_type.name} passengers: {initial_pax:.0f}")
-        print(f"Adjusted predicted {flight_type.name} passengers: {adjusted_pax:.0f}")
         return adjusted_pax
 
 # Example usage:
