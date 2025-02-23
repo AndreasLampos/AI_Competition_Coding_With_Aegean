@@ -1,9 +1,11 @@
 from PredictionModel import main, compute_weighted_competitor_price, FlightType
 import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Assumptions
 FC = 1000000
-cost_per_flight = 50000
+cost_per_flight = 5000
 plane_capacity = 180
 
 VC = lambda count_of_flights, cost_per_flight: count_of_flights * cost_per_flight
@@ -22,24 +24,32 @@ if __name__ == "__main__":
     years = [2025]
     months = [8]
     flight_types = ["DOMESTIC"]
-    
+
     for year in years:
         for month in months:
             for flight_type in flight_types:
-                best_profit = None
-                best_avg_fare = None
                 # Call the function using the DataFrame and FlightType enum
                 competitor_price = compute_weighted_competitor_price(df, FlightType[flight_type], year, month)
-                print(f"Copetitor Price: {competitor_price}")
-                avg_fares = [competitor_price * 0.8, competitor_price * 1.2]
+                
+                # Generate a range of average fares (using an appropriate step)
+                avg_fares = np.arange(competitor_price * 0.7, competitor_price * 1.3, 1)
+                
+                # Lists to store data for plotting
+                pax_vals = []
+                fare_vals = []
 
                 for avg_fare in avg_fares:
+                    print(f"Avg Fare: {avg_fare}")
                     pax_prediction = main(year, month, avg_fare, flight_type)
-                    rev_value = revenue_fn(pax_prediction, avg_fare)
-                    VC_value = VC(count_of_flights(pax_prediction, plane_capacity), cost_per_flight)
-                    total_cost_value = total_cost(VC_value, FC)
-                    current_profit = profit(rev_value, total_cost_value)
-                    if best_profit is None or current_profit > best_profit:
-                        best_profit = current_profit
-                        best_avg_fare = avg_fare
-                print(f"Year: {year}, Month: {month}, Flight Type: {flight_type}, Best Avg Fare: {best_avg_fare}, Profit: {best_profit}")
+                    print(f"Predicted Passengers: {pax_prediction}")
+                    pax_vals.append(pax_prediction)
+                    fare_vals.append(avg_fare)
+
+                # Plot predicted passengers vs. average fare for this combination
+                plt.figure()
+                plt.plot(fare_vals, pax_vals, marker='o')
+                plt.xlabel("Average Fare")
+                plt.ylabel("Predicted Passengers")
+                plt.title(f"Avg Fare vs. Predicted Passengers for {flight_type} - {month}/{year}")
+                plt.grid(True)
+                plt.show()

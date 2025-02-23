@@ -193,8 +193,6 @@ def main(year, month, avg_fare, flight_type_str):
         month_rank = month_ranks[month]
         adjusted_pax = adjust_passengers(initial_pax, avg_fare, weighted_competitor_price, month_rank)
         
-        print(f"Initial predicted {flight_type.name} passengers: {initial_pax:.0f}")
-        print(f"Adjusted predicted {flight_type.name} passengers: {adjusted_pax:.0f}")
         return adjusted_pax
     
     elif flight_type == FlightType.INTERNATIONAL:
