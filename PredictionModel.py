@@ -68,7 +68,8 @@ def grid_search_and_fit(model, X_train, y_train, best_params=None, params=None):
     else:
         raise ValueError("Either best_params or params must be provided.")
 
-# Train models and prepare for prediction
+# ...existing imports and definitions...
+
 def predict_passengers(flight_type: FlightType):
     df = pd.read_csv('Data Files/deepthink_data_v2.csv')
     
@@ -129,7 +130,7 @@ def predict_passengers(flight_type: FlightType):
         'RandomForest': rf_model
     }
 
-    # Calculate R² scores for weights
+    # Calculate R² scores for each model on training and testing sets
     r2_scores_train = {}
     r2_scores_test = {}
     for name, model in models.items():
@@ -140,8 +141,26 @@ def predict_passengers(flight_type: FlightType):
             r2_scores_train[name] = r2_score(y_train, model.predict(X_train))
             r2_scores_test[name] = r2_score(y_test, model.predict(X_test))
 
+    # Print individual R² scores
+    print("Train R² scores:")
+    for name, score in r2_scores_train.items():
+        print(f"  {name}: {score:.4f}")
+    print("Test R² scores:")
+    for name, score in r2_scores_test.items():
+        print(f"  {name}: {score:.4f}")
+    
+    # Compute ensemble weights based on test R² scores
     ensemble_weights = {k: v / sum(r2_scores_test.values()) for k, v in r2_scores_test.items()}
-
+    
+    # Compute ensemble predictions for training and testing sets
+    ensemble_pred_train = predict_with_models(models, X_train, ensemble_weights, scaler)
+    ensemble_pred_test  = predict_with_models(models, X_test, ensemble_weights, scaler)
+    ensemble_r2_train = r2_score(y_train, ensemble_pred_train)
+    ensemble_r2_test  = r2_score(y_test, ensemble_pred_test)
+    
+    print(f"Ensemble Train R²: {ensemble_r2_train:.4f}")
+    print(f"Ensemble Test R²: {ensemble_r2_test:.4f}")
+    
     return models, scaler, ensemble_weights, features
 
 # New helper function: compute weighted competitor price using lagged data
