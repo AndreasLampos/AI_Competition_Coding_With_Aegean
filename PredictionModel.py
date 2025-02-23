@@ -164,6 +164,22 @@ def compute_lag_feature(df, flight_type: FlightType, target_year, target_month, 
     print(f"Weighted competitor price for {flight_type.name}: {weighted_price:.2f}")
     return weighted_price
 
+# New helper function: compute weighted seats using lagged data
+def compute_lag_seats(df, flight_type: FlightType, target_year, target_month, weights=(0.6, 0.3, 0.1)):
+    seats_col = f"seats_{flight_type.value}"
+    seats_values = []
+    for lag in range(1, 4):
+        value = df.loc[(df['year'] == target_year - lag) & (df['month'] == target_month), seats_col]
+        if not value.empty:
+            seats_values.append(value.iloc[0])
+        else:
+            seats_values.append(np.nan)
+    seats_values = np.array(seats_values, dtype=float)
+    if np.isnan(seats_values).any():
+        seats_values = np.where(np.isnan(seats_values), np.nanmean(seats_values), seats_values)
+    weighted_seats = seats_values[0] * weights[0] + seats_values[1] * weights[1] + seats_values[2] * weights[2]
+    return weighted_seats
+
 def main(year, month, avg_fare, flight_type_str):
     month_ranks = {
         1: 10, 2: 12, 3: 11, 4: 9, 5: 6, 6: 4, 7: 3, 8: 1, 9: 2, 10: 7, 11: 5, 12: 8
