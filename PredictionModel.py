@@ -88,7 +88,7 @@ def predict_passengers(flight_type: FlightType):
     df['weighted_selling_prices'] = (df['selling_prices_lag1'] * 0.6 +
                                      df['selling_prices_lag2'] * 0.3 +
                                      df['selling_prices_lag3'] * 0.1)
-    df['weighted_selling_prices'].fillna(df[competitor_col], inplace=True)
+    df['weighted_selling_prices'] = df['weighted_selling_prices'].fillna(df[competitor_col])
     
     # Define features and target
     features = ['year', 'month', f'avg_fare_{flight_type.value}', 'weighted_selling_prices',
@@ -160,10 +160,11 @@ def compute_weighted_competitor_price(df, flight_type: FlightType, target_year, 
     weighted_price = (competitor_values[0] * weights[0] +
                       competitor_values[1] * weights[1] +
                       competitor_values[2] * weights[2])
+
+    print(f"Weighted competitor price for {flight_type.name}: {weighted_price:.2f}")
     return weighted_price
 
-# Main prediction function (competitor prices calculated from lagged data)
-def main(year, month, avg_fare_D, avg_fare_I, flight_type_str):
+def main(year, month, avg_fare, flight_type_str):
     month_ranks = {
         1: 10, 2: 12, 3: 11, 4: 9, 5: 6, 6: 4, 7: 3, 8: 1, 9: 2, 10: 7, 11: 5, 12: 8
     }
@@ -180,17 +181,17 @@ def main(year, month, avg_fare_D, avg_fare_I, flight_type_str):
     
     if flight_type == FlightType.DOMESTIC:
         weighted_competitor_price = compute_weighted_competitor_price(df, FlightType.DOMESTIC, year, month)
-        mean_seats_D = df['seats_D'].mean()
-        mean_lf_D = df['LF_D'].mean()
-        # Order: year, month, avg_fare_D, weighted_selling_prices, seats_D, LF_D
-        user_data = (year, month, avg_fare_D, weighted_competitor_price, mean_seats_D, mean_lf_D)
+        mean_seats = df['seats_D'].mean()
+        mean_lf = df['LF_D'].mean()
+        # Order of features: year, month, avg_fare_D, weighted_selling_prices, seats_D, LF_D
+        user_data = (year, month, avg_fare, weighted_competitor_price, mean_seats, mean_lf)
         input_data = pd.DataFrame([user_data], columns=domestic_features)
         input_data['avg_fare_D'] = np.log1p(input_data['avg_fare_D'])
         prediction_log = predict_with_models(domestic_models, input_data, domestic_weights, domestic_scaler)
         initial_pax = np.expm1(prediction_log)[0]
         
         month_rank = month_ranks[month]
-        adjusted_pax = adjust_passengers(initial_pax, avg_fare_D, weighted_competitor_price, month_rank)
+        adjusted_pax = adjust_passengers(initial_pax, avg_fare, weighted_competitor_price, month_rank)
         
         print(f"Initial predicted {flight_type.name} passengers: {initial_pax:.0f}")
         print(f"Adjusted predicted {flight_type.name} passengers: {adjusted_pax:.0f}")
@@ -198,28 +199,27 @@ def main(year, month, avg_fare_D, avg_fare_I, flight_type_str):
     
     elif flight_type == FlightType.INTERNATIONAL:
         weighted_competitor_price = compute_weighted_competitor_price(df, FlightType.INTERNATIONAL, year, month)
-        mean_seats_I = df['seats_I'].mean()
-        mean_lf_I = df['LF_I'].mean()
-        # Order: year, month, avg_fare_I, weighted_selling_prices, seats_I, LF_I
-        user_data = (year, month, avg_fare_I, weighted_competitor_price, mean_seats_I, mean_lf_I)
+        mean_seats = df['seats_I'].mean()
+        mean_lf = df['LF_I'].mean()
+        # Order of features: year, month, avg_fare_I, weighted_selling_prices, seats_I, LF_I
+        user_data = (year, month, avg_fare, weighted_competitor_price, mean_seats, mean_lf)
         input_data = pd.DataFrame([user_data], columns=international_features)
         input_data['avg_fare_I'] = np.log1p(input_data['avg_fare_I'])
         prediction_log = predict_with_models(international_models, input_data, international_weights, international_scaler)
         initial_pax = np.expm1(prediction_log)[0]
         
         month_rank = month_ranks[month]
-        adjusted_pax = adjust_passengers(initial_pax, avg_fare_I, weighted_competitor_price, month_rank)
+        adjusted_pax = adjust_passengers(initial_pax, avg_fare, weighted_competitor_price, month_rank)
         
         print(f"Initial predicted {flight_type.name} passengers: {initial_pax:.0f}")
         print(f"Adjusted predicted {flight_type.name} passengers: {adjusted_pax:.0f}")
         return adjusted_pax
 
-# Example usage
+# Example usage:
 if __name__ == "__main__":
     year = 2024
     month = 8
-    avg_fare_D = 70.0
-    avg_fare_I = 150.0
-    flight_type_str = 'DOMESTIC'
-    result = main(year, month, avg_fare_D, avg_fare_I, flight_type_str)
+    avg_fare = 90.0  # Use avg fare for the chosen flight type only
+    flight_type_str = 'DOMESTIC'  # or 'DOMESTIC'
+    result = main(year, month, avg_fare, flight_type_str)
     print(f"Final result: {result:.0f}")
