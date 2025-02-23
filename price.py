@@ -7,12 +7,12 @@ def corrected_price_table(avg_price):
     
     rows = []
     for t in days:
-        # Target average price A(t)
-        A_t = 80 + 40 * (1 - t / 360)
-        # Starting price P_start(t)
-        P_start = 40 + 40 * (1 - t / 360)
-        # Compute gamma_t
-        gamma_t = (A_t - P_start) / 0.45
+        # Target average price
+        A_t = avg_price + 2 * avg_price * (1 - t / 360)
+        # Starting price
+        P_start = A_t / 2
+        # Slope factor
+        gamma_t = A_t / 0.9
         for c in capacity_values:
             p = P_start + gamma_t * (c - 0.1)
             rows.append({
@@ -23,12 +23,7 @@ def corrected_price_table(avg_price):
     
     df = pd.DataFrame(rows)
     
-    # Adjust overall average
-    current_avg = df['price'].mean()
-    offset = avg_price - current_avg
-    df['price'] = df['price'] + offset
-    
-    # Create wide table
+    # Pivot to wide format
     df_wide = df.pivot(index="days_to_departure", columns="occupancy", values="price")
     df_wide.sort_index(ascending=False, inplace=True)
     df_wide.columns = [f"{c:.1f}" for c in df_wide.columns]
