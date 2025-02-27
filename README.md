@@ -70,4 +70,4 @@ By combining the detailed historical flight data from the **Hackthon A3 Dataset*
 <br/>
 <br/>
 
-# View our Team's Presentation with all the details, [!here](Teams presentation AI HACKATHON 2025.pptx)
+# View our Team's Presentation with all the details, ![here](Teams presentation AI HACKATHON 2025pdf.pdf)
